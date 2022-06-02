@@ -1,0 +1,26 @@
+{
+  "name": "super-timesheet-auth",
+  "version": "0.0.1",
+  "main": "index.js",
+  "repository": "git@github.com:Dgvalerio/super-timesheet-auth.git",
+  "author": "Davi <al.davigvalerio@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "tsnd --respawn --transpile-only -r tsconfig-paths/register src/index.ts"
+  },
+  "dependencies": {
+    "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.0.0",
+    "typescript": "^4.7.2"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.27.0",
+    "@typescript-eslint/parser": "^5.27.0",
+    "eslint": "^8.16.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-import-helpers": "^1.2.1",
+    "eslint-plugin-prettier": "^4.0.0",
+    "prettier": "^2.6.2"
+  }
+}
