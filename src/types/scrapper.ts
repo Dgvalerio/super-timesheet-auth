@@ -85,7 +85,6 @@ export namespace Scrapper {
     StartDate: string;
     EndDate: string;
     IdCustomer: number;
-    progress: ProjectProgress;
   }
 
   export interface Category {

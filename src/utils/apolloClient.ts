@@ -1,5 +1,6 @@
 /* eslint-disable require-jsdoc */
 import { ClientEntity, CreateClientInput } from '@/utils/client.dto';
+import { CreateProjectInput, ProjectEntity } from '@/utils/project.dto';
 
 import {
   ApolloClient,
@@ -57,5 +58,37 @@ export class ApolloClientHelper {
     `);
 
     if (data) console.log('CreateClient: ', data.createClient);
+  }
+
+  async createProject(input: CreateProjectInput) {
+    const { data } = await this.mutation<{ createProject: ProjectEntity }>(gql`
+      mutation {
+        createProject(input: {
+          code: "${input.code}"
+          name: "${input.name}"
+          startDate: "${input.startDate}"
+          endDate: "${input.endDate}"
+          clientCode: "${input.clientCode}"
+        }) {
+          id
+          code
+          name
+          startDate
+          endDate
+          client {
+            id
+            code
+            name
+          }
+          categories {
+            id
+            code
+            name
+          }
+        }
+      }
+    `);
+
+    if (data) console.log('CreateProject: ', data.createProject);
   }
 }
