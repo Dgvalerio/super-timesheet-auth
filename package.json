@@ -1,5 +1,6 @@
 {
   "name": "super-timesheet-auth",
+  "description": "Auth API to support super-timesheet-api",
   "version": "0.0.1",
   "main": "index.js",
   "repository": "git@github.com:Dgvalerio/super-timesheet-auth.git",
