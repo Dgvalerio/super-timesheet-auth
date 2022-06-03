@@ -177,11 +177,11 @@ export const seed: Scrapper.Handler = async (req, res) => {
       );
 
       projects = projects.concat(data);
-
-      console.log('Finalize Read Projects process!');
     } catch (e) {
       console.error('Error on list projects: ', e);
     }
+
+    console.log('Finalize Read Projects process!');
   };
 
   if (clients.length <= 0) return ok();
@@ -193,7 +193,7 @@ export const seed: Scrapper.Handler = async (req, res) => {
       await apolloClient.createClient({ code: id, name: title });
     } catch (e) {
       console.log(
-        { id, title },
+        { title },
         (<{ graphQLErrors: GraphQLError[] }>e).graphQLErrors[0].message
       );
     }
@@ -208,6 +208,28 @@ export const seed: Scrapper.Handler = async (req, res) => {
   await saveClient(0);
 
   if (projects.length <= 0) return ok();
+
+  const getCategories = async (idProject: number): Promise<void> => {
+    // Read Categories
+    console.log('Initiate Read Categories process!');
+
+    try {
+      const { data } = await api.post<Scrapper.Category[]>(
+        '/Worksheet/ReadCategory',
+        `idproject=${idProject}`
+      );
+
+      data.map((category) => {
+        if (!categories.find(({ Id }) => Id === category.Id)) {
+          categories.push(category);
+        }
+      });
+    } catch (e) {
+      console.error('Error on list categories: ', e);
+    }
+
+    console.log('Finalize Read Projects process!');
+  };
 
   const saveProject = async (projectPos: number) => {
     const { Id, Name, EndDate, StartDate, IdCustomer } = projects[projectPos];
@@ -227,7 +249,7 @@ export const seed: Scrapper.Handler = async (req, res) => {
       );
     }
 
-    // await getProjects(+Id);
+    await getCategories(+Id);
 
     if (projectPos < projects.length - 1) {
       await saveProject(projectPos + 1);
@@ -236,11 +258,36 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
   await saveProject(0);
 
+  if (categories.length <= 0) return ok();
+
+  const saveCategory = async (categoryPos: number) => {
+    const { Id, Name, IdProject } = categories[categoryPos];
+
+    try {
+      await apolloClient.createCategory({
+        code: String(Id),
+        name: Name,
+      });
+
+      await apolloClient.addCategoryToProject({
+        categoryCode: String(Id),
+        projectCode: String(IdProject),
+      });
+    } catch (e) {
+      console.log(
+        { Name },
+        (<{ graphQLErrors: GraphQLError[] }>e).graphQLErrors[0].message
+      );
+    }
+
+    await getCategories(+Id);
+
+    if (categoryPos < categories.length - 1) {
+      await saveCategory(categoryPos + 1);
+    }
+  };
+
+  await saveCategory(0);
+
   return ok();
-
-  // await (async () => {})();
-
-  // await (async () => {})();
-
-  // await (async () => {})();
 };

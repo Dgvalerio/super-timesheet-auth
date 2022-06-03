@@ -3,3 +3,8 @@ export interface CategoryEntity {
   code?: string;
   name: string;
 }
+
+export interface CreateCategoryInput {
+  code?: CategoryEntity['code'];
+  name: CategoryEntity['name'];
+}

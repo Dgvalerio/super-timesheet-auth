@@ -18,3 +18,8 @@ export interface CreateProjectInput {
   endDate: ProjectEntity['endDate'];
   clientCode: ProjectEntity['code'];
 }
+
+export interface AddCategoryInput {
+  projectCode?: ProjectEntity['code'];
+  categoryCode?: CategoryEntity['code'];
+}

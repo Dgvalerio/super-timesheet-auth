@@ -1,6 +1,11 @@
 /* eslint-disable require-jsdoc */
+import { CategoryEntity, CreateCategoryInput } from '@/utils/category.dto';
 import { ClientEntity, CreateClientInput } from '@/utils/client.dto';
-import { CreateProjectInput, ProjectEntity } from '@/utils/project.dto';
+import {
+  AddCategoryInput,
+  CreateProjectInput,
+  ProjectEntity,
+} from '@/utils/project.dto';
 
 import {
   ApolloClient,
@@ -32,28 +37,13 @@ export class ApolloClientHelper {
     return this.client.mutate<Return>({ mutation: mutationNode });
   }
 
-  async query<Return>(queryNode: DocumentNode) {
-    return this.client.query<Return>({ query: queryNode });
-  }
-
   async createClient(input: CreateClientInput) {
     const { data } = await this.mutation<{ createClient: ClientEntity }>(gql`
       mutation {
         createClient(input: {
           code: "${input.code}"
           name: "${input.name}"
-        }) {
-          id
-          code
-          name
-          projects {
-            id
-            code
-            name
-            startDate
-            endDate
-          }
-        }
+        }) { id }
       }
     `);
 
@@ -69,26 +59,40 @@ export class ApolloClientHelper {
           startDate: "${input.startDate}"
           endDate: "${input.endDate}"
           clientCode: "${input.clientCode}"
-        }) {
-          id
-          code
-          name
-          startDate
-          endDate
-          client {
-            id
-            code
-            name
-          }
-          categories {
-            id
-            code
-            name
-          }
-        }
+        }) { id }
       }
     `);
 
     if (data) console.log('CreateProject: ', data.createProject);
+  }
+
+  async createCategory(input: CreateCategoryInput) {
+    const { data } = await this.mutation<{
+      createCategory: CategoryEntity;
+    }>(gql`
+      mutation {
+        createCategory(input: {
+          code: "${input.code}"
+          name: "${input.name}"
+        }) { id }
+      }
+    `);
+
+    if (data) console.log('CreateCategory: ', data.createCategory);
+  }
+
+  async addCategoryToProject(input: AddCategoryInput) {
+    const { data } = await this.mutation<{
+      addCategory: ProjectEntity;
+    }>(gql`
+      mutation {
+        addCategory(input: {
+          projectCode: "${input.projectCode}"
+          categoryCode: "${input.categoryCode}"
+        }) { id }
+      }
+    `);
+
+    if (data) console.log('AddCategoryInput: ', data.addCategory);
   }
 }
