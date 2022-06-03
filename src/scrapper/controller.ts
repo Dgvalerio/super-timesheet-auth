@@ -1,4 +1,5 @@
 import { Scrapper } from '@/types/scrapper';
+import { ApolloClientHelper } from '@/utils/apolloClient';
 import { PuppeteerLaunchOptions, scrapper } from '@/utils/scrapper';
 
 import axios from 'axios';
@@ -20,6 +21,11 @@ export const seed: Scrapper.Handler = async (req, res) => {
   if (!req.body.password) {
     return res.status(400).json({ error: 'password should not be empty' });
   }
+  if (!req.body.token) {
+    return res.status(400).json({ error: 'token should not be empty' });
+  }
+
+  const apolloClient = new ApolloClientHelper(req.body.token);
 
   console.log('Starting the browser...');
 
@@ -142,6 +148,7 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
           console.log('Client: ', { id, title });
 
+          if (id) await apolloClient.createClient({ code: id, name: title });
           // await listProjects(+id);
 
           return { id: id || '-1', title };

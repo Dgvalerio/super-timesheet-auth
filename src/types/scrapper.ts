@@ -119,6 +119,7 @@ export namespace Scrapper {
   export interface Request {
     login: string;
     password: string;
+    token: string;
   }
 
   export type Response =
