@@ -106,10 +106,10 @@
       }
     ],
     "@typescript-eslint/no-explicit-any": "warn",
-    "no-console": "warn",
     "lines-between-class-members": [
       "error",
       "always"
-    ]
+    ],
+    "new-cap": "off"
   }
 }
