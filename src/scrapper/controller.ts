@@ -1,10 +1,14 @@
 import { Scrapper } from '@/types/scrapper';
 import { brDateToISO } from '@/utils';
 import { ApolloClientHelper } from '@/utils/apolloClient';
+import { AppointmentStatus } from '@/utils/appointment.dto';
 import { PuppeteerLaunchOptions, scrapper } from '@/utils/scrapper';
+import { UserEntity } from '@/utils/user.dto';
 
+import { ApolloError } from 'apollo-boost';
 import axios from 'axios';
 import { GraphQLError } from 'graphql';
+import jwt from 'jsonwebtoken';
 import puppeteer, { Protocol, PuppeteerErrors } from 'puppeteer';
 
 const options: PuppeteerLaunchOptions = {
@@ -28,6 +32,29 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
   const apolloClient = new ApolloClientHelper(req.body.token);
 
+  const decode = jwt.decode(req.body.token);
+
+  let getUser: UserEntity;
+
+  try {
+    const data = await apolloClient.getUserEmail({ id: `${decode?.sub}` });
+
+    getUser = data.getUser;
+  } catch (e) {
+    if (!(<ApolloError>e).graphQLErrors)
+      return res.status(500).json({ error: 'Nothing ok...' });
+
+    const { message, extensions } = (<ApolloError>e).graphQLErrors[0];
+    const code = (<{ response: { statusCode: number } }>extensions).response
+      .statusCode;
+
+    return res.status(code).json({ error: message });
+  }
+
+  if (!getUser) {
+    return res.status(200).json({ message: 'All done!' });
+  }
+
   console.log('Starting the browser...');
 
   const browser = await puppeteer.launch(options);
@@ -38,54 +65,54 @@ export const seed: Scrapper.Handler = async (req, res) => {
   let cookies: Protocol.Network.Cookie[] = [];
 
   // Sign In
-  await (async () => {
-    console.log('Initiate Sign In process!');
+  console.log('Initiate Sign In process!');
 
-    try {
-      await page.goto(scrapper.accountLogin);
+  try {
+    await page.goto(scrapper.accountLogin);
 
-      await page.waitForSelector('form');
+    await page.waitForSelector('form');
 
-      await page.type('#Login', req.body.login);
+    await page.type('#Login', req.body.login);
 
-      await page.type('#Password', req.body.password);
+    await page.type('#Password', req.body.password);
 
-      await page.click('[type="submit"]');
+    await page.click('[type="submit"]');
 
-      await page.waitForSelector('.sidebar-menu', { timeout: 3000 });
+    await page.waitForSelector('.sidebar-menu', { timeout: 3000 });
 
-      if (page.url() !== scrapper.homeIndex) {
-        return res.status(406).json({ error: 'Invalid login' });
-      }
+    if (page.url() !== scrapper.homeIndex) {
+      await page.close();
 
-      cookies = await page.cookies();
+      return res.status(406).json({ error: 'Invalid login' });
+    }
 
-      console.log('Sign In Success!');
-    } catch (e) {
-      console.error({ e });
-      if (
-        (<Error>e).message ===
-        'waiting for selector `.sidebar-menu` failed: timeout 3000ms exceeded'
-      ) {
-        try {
-          await page.waitForSelector('.login-container');
-          res.status(401).json({ error: `Login is invalid!` });
-        } catch (e2) {
-          res.status(500).json({
-            error: `There was a login failure: ${
-              (<PuppeteerErrors>e2).message
-            }`,
-          });
-        }
-      } else {
+    cookies = await page.cookies();
+
+    console.log('Sign In Success!');
+  } catch (e) {
+    console.error({ e });
+    if (
+      (<Error>e).message ===
+      'waiting for selector `.sidebar-menu` failed: timeout 3000ms exceeded'
+    ) {
+      try {
+        await page.waitForSelector('.login-container');
+        res.status(401).json({ error: `Login is invalid!` });
+      } catch (e2) {
         res.status(500).json({
-          error: `There was a login failure: ${(<PuppeteerErrors>e).message}`,
+          error: `There was a login failure: ${(<PuppeteerErrors>e2).message}`,
         });
       }
+    } else {
+      res.status(500).json({
+        error: `There was a login failure: ${(<PuppeteerErrors>e).message}`,
+      });
     }
-  })();
+  }
 
   if (!cookies || cookies.length === 0) {
+    await page.close();
+
     return res.status(401).json({ error: `Cookies not informed` });
   }
 
@@ -114,6 +141,7 @@ export const seed: Scrapper.Handler = async (req, res) => {
   const clients: Scrapper.Client[] = [];
   let projects: Scrapper.Project[] = [];
   const categories: Scrapper.Category[] = [];
+  let appointments: Scrapper.Appointment[] = [];
 
   const getClients = async () => {
     // Read Clients
@@ -164,8 +192,6 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
   await getClients();
 
-  const ok = () => res.status(200).json({ message: 'All done!' });
-
   const getProjects = async (idCustomer: number): Promise<void> => {
     // Read Projects
     console.log('Initiate Read Projects process!');
@@ -184,7 +210,11 @@ export const seed: Scrapper.Handler = async (req, res) => {
     console.log('Finalize Read Projects process!');
   };
 
-  if (clients.length <= 0) return ok();
+  if (clients.length <= 0) {
+    await page.close();
+
+    return res.status(200).json({ message: 'All done!' });
+  }
 
   const saveClient = async (clientPos: number) => {
     const { id, title } = clients[clientPos];
@@ -192,10 +222,14 @@ export const seed: Scrapper.Handler = async (req, res) => {
     try {
       await apolloClient.createClient({ code: id, name: title });
     } catch (e) {
-      console.log(
-        { title },
-        (<{ graphQLErrors: GraphQLError[] }>e).graphQLErrors[0].message
-      );
+      if ((<ApolloError>e).graphQLErrors.length > 0) {
+        console.log(
+          { title },
+          (<{ graphQLErrors: GraphQLError[] }>e).graphQLErrors[0].message
+        );
+      } else {
+        throw e;
+      }
     }
 
     await getProjects(+id);
@@ -205,9 +239,29 @@ export const seed: Scrapper.Handler = async (req, res) => {
     }
   };
 
-  await saveClient(0);
+  try {
+    await saveClient(0);
+  } catch (e) {
+    if ((<ApolloError>e).networkError) {
+      console.log({
+        error: (<{ networkError: { code: string } }>e).networkError.code,
+      });
 
-  if (projects.length <= 0) return ok();
+      await page.close();
+
+      return res.status(500).json({
+        error: (<{ networkError: { code: string } }>e).networkError.code,
+      });
+    }
+
+    res.status(500).json({ error: JSON.stringify(<ApolloError>e) });
+  }
+
+  if (projects.length <= 0) {
+    await page.close();
+
+    return res.status(200).json({ message: 'All done!' });
+  }
 
   const getCategories = async (idProject: number): Promise<void> => {
     // Read Categories
@@ -258,7 +312,11 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
   await saveProject(0);
 
-  if (categories.length <= 0) return ok();
+  if (categories.length <= 0) {
+    await page.close();
+
+    return res.status(200).json({ message: 'All done!' });
+  }
 
   const saveCategory = async (categoryPos: number) => {
     const { Id, Name, IdProject } = categories[categoryPos];
@@ -289,5 +347,209 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
   await saveCategory(0);
 
-  return ok();
+  const getAppointments = async () => {
+    console.log('ReadAppointments: Initiate Read Appointments process!');
+
+    try {
+      await page.goto(scrapper.worksheetRead);
+
+      await page.waitForSelector('#tbWorksheet', { timeout: 3000 });
+      console.log('ReadAppointments: Page loaded!');
+
+      const localAppointments = await page.evaluate(() => {
+        const items: Omit<Scrapper.Appointment, 'descricao' | 'commit'>[] = [];
+
+        const pushItems = () =>
+          document
+            .querySelectorAll('#tbWorksheet > tbody > tr')
+            .forEach(({ children }) =>
+              items.push({
+                id: (children[9] as HTMLTableColElement)?.children[0].id,
+                cliente: (children[0] as HTMLTableColElement)?.innerText,
+                projeto: (children[1] as HTMLTableColElement)?.innerText,
+                categoria: (children[2] as HTMLTableColElement)?.innerText,
+                data: (children[3] as HTMLTableColElement)?.innerText,
+                horaInicial: (children[4] as HTMLTableColElement)?.innerText,
+                horaFinal: (children[5] as HTMLTableColElement)?.innerText,
+                naoContabilizado: (
+                  (children[7] as HTMLTableColElement)
+                    ?.children[0] as HTMLInputElement
+                ).checked,
+                avaliacao: (children[8] as HTMLTableColElement)?.innerText,
+              })
+            );
+
+        pushItems();
+
+        while (
+          !document
+            .querySelector('#tbWorksheet_next')
+            ?.classList.contains('disabled')
+        ) {
+          (<HTMLButtonElement>(
+            document.querySelector('#tbWorksheet_next')
+          ))?.click();
+
+          pushItems();
+        }
+
+        return items;
+      });
+
+      const appointmentsWithDescriptionPromise = localAppointments.map(
+        async (appointment) => {
+          const {
+            data: {
+              IdCustomer,
+              IdProject,
+              IdCategory,
+              InformedDate,
+              StartTime,
+              EndTime,
+              NotMonetize,
+              Description,
+              CommitRepository,
+            },
+          } = await api.get<Scrapper.FullAppointment>(
+            `/Worksheet/Update?id=${appointment.id}`
+          );
+
+          return {
+            id: appointment.id,
+            cliente: String(IdCustomer),
+            projeto: String(IdProject),
+            categoria: String(IdCategory),
+            data: InformedDate,
+            horaInicial: StartTime,
+            horaFinal: EndTime,
+            descricao: Description,
+            naoContabilizado: NotMonetize,
+            avaliacao: appointment.avaliacao,
+            commit: CommitRepository || '',
+          };
+        }
+      );
+
+      const appointmentsWithDescription: Scrapper.Appointment[] =
+        await Promise.all(appointmentsWithDescriptionPromise);
+
+      appointments = appointments.concat(appointmentsWithDescription);
+    } catch (e) {
+      console.error({ e });
+      if (
+        (<Error>e).message ===
+        'waiting for selector `#tbWorksheet` failed: timeout 3000ms exceeded'
+      ) {
+        try {
+          await page.waitForSelector('.login-container');
+
+          await page.close();
+
+          return res.status(401).json({ error: `Cookies are invalid!` });
+        } catch (e2) {
+          await page.close();
+
+          return res.status(500).json({
+            error: `There was a list appointments failure: ${
+              (<PuppeteerErrors>e2).message
+            }`,
+          });
+        }
+      } else {
+        await page.close();
+
+        return res.status(500).json({
+          error: `There was a list appointments failure: ${
+            (<PuppeteerErrors>e).message
+          }`,
+        });
+      }
+    } finally {
+      console.log('ReadAppointments: Finalize Read Appointments process!');
+    }
+  };
+
+  await getAppointments();
+
+  if (appointments.length <= 0) {
+    await page.close();
+
+    return res.status(200).json({ message: 'All done!' });
+  }
+
+  const saveAppointment = async (appointmentPos: number) => {
+    const {
+      id,
+      data,
+      horaInicial,
+      horaFinal,
+      naoContabilizado,
+      descricao,
+      commit,
+      avaliacao,
+      projeto,
+      categoria,
+    } = appointments[appointmentPos];
+
+    let status: AppointmentStatus;
+
+    switch (avaliacao) {
+      case 'Aprovada':
+        status = AppointmentStatus.Approved;
+        break;
+      default:
+        status = AppointmentStatus.Draft;
+    }
+
+    try {
+      await apolloClient.createAppointment({
+        code: id,
+        date: brDateToISO(data),
+        startTime: horaInicial,
+        endTime: horaFinal,
+        notMonetize: naoContabilizado,
+        description: descricao,
+        commit: commit,
+        status,
+        userEmail: getUser.email,
+        projectCode: projeto,
+        categoryCode: categoria,
+      });
+    } catch (e) {
+      if ((<ApolloError>e).graphQLErrors.length > 0) {
+        console.log(
+          { id },
+          (<{ graphQLErrors: GraphQLError[] }>e).graphQLErrors[0].message
+        );
+      } else {
+        throw e;
+      }
+    }
+
+    if (appointmentPos < appointments.length - 1) {
+      await saveAppointment(appointmentPos + 1);
+    }
+  };
+
+  try {
+    await saveAppointment(0);
+  } catch (e) {
+    if ((<ApolloError>e).networkError) {
+      console.log({ error: (<ApolloError>e).networkError });
+
+      await page.close();
+
+      return res.status(500).json({
+        error: (<{ networkError: { code: string } }>e).networkError.code,
+      });
+    }
+
+    await page.close();
+
+    return res.status(500).json({ error: JSON.stringify(<ApolloError>e) });
+  }
+
+  await page.close();
+
+  return res.status(200).json({ message: 'All done!' });
 };

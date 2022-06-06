@@ -8,8 +8,7 @@ export interface UserEntity {
   projects: ProjectEntity[];
 }
 
-export interface CreateUserInput {
-  name: string;
-  email: string;
-  password: string;
+export interface GetUserInput {
+  id?: UserEntity['id'];
+  email?: UserEntity['email'];
 }

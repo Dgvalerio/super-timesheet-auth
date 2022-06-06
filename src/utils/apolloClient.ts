@@ -1,4 +1,8 @@
 /* eslint-disable require-jsdoc */
+import {
+  AppointmentEntity,
+  CreateAppointmentInput,
+} from '@/utils/appointment.dto';
 import { CategoryEntity, CreateCategoryInput } from '@/utils/category.dto';
 import { ClientEntity, CreateClientInput } from '@/utils/client.dto';
 import {
@@ -6,6 +10,7 @@ import {
   CreateProjectInput,
   ProjectEntity,
 } from '@/utils/project.dto';
+import { GetUserInput, UserEntity } from '@/utils/user.dto';
 
 import {
   ApolloClient,
@@ -35,6 +40,10 @@ export class ApolloClientHelper {
 
   async mutation<Return>(mutationNode: DocumentNode) {
     return this.client.mutate<Return>({ mutation: mutationNode });
+  }
+
+  async query<Return>(queryNode: DocumentNode) {
+    return this.client.query<Return>({ query: queryNode });
   }
 
   async createClient(input: CreateClientInput) {
@@ -94,5 +103,45 @@ export class ApolloClientHelper {
     `);
 
     if (data) console.log('AddCategoryInput: ', data.addCategory);
+  }
+
+  async createAppointment(input: CreateAppointmentInput) {
+    const { data } = await this.mutation<{
+      createAppointment: AppointmentEntity;
+    }>(gql`
+      mutation {
+        createAppointment(input: {
+          code: "${input.code}",
+          date: "${input.date}",
+          startTime: "${input.startTime}",
+          endTime: "${input.endTime}",
+          notMonetize: ${input.notMonetize},
+          commit: "${input.commit}",
+          status: ${input.status},
+          userEmail: "${input.userEmail}",
+          projectCode: "${input.projectCode}",
+          categoryCode: "${input.categoryCode}",
+          description: """
+            ${input.description}
+          """
+        }) { id }
+      }
+    `);
+
+    if (data) console.log('CreateAppointment: ', data.createAppointment);
+  }
+
+  async getUserEmail(input: GetUserInput) {
+    const { data } = await this.query<{ getUser: UserEntity }>(gql`
+      query {
+        getUser(input: { id: "${input.id}" }) {
+          id
+          email
+          name
+        }
+      }
+    `);
+
+    return data;
   }
 }
