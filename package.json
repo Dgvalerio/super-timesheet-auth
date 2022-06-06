@@ -2,7 +2,7 @@
   "name": "super-timesheet-auth",
   "description": "Auth API to support super-timesheet-api",
   "version": "0.0.1",
-  "main": "index.js",
+  "main": "src/index.ts",
   "repository": "git@github.com:Dgvalerio/super-timesheet-auth.git",
   "author": "Davi <al.davigvalerio@gmail.com>",
   "license": "MIT",
