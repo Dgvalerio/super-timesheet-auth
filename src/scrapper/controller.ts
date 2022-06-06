@@ -2,6 +2,7 @@ import { Scrapper } from '@/types/scrapper';
 import { brDateToISO } from '@/utils';
 import { ApolloClientHelper } from '@/utils/apolloClient';
 import { AppointmentStatus } from '@/utils/appointment.dto';
+import { error, log } from '@/utils/logs';
 import { PuppeteerLaunchOptions, scrapper } from '@/utils/scrapper';
 import { UserEntity } from '@/utils/user.dto';
 
@@ -30,6 +31,8 @@ export const seed: Scrapper.Handler = async (req, res) => {
     return res.status(400).json({ error: 'token should not be empty' });
   }
 
+  log('Start Seed!\n');
+
   const apolloClient = new ApolloClientHelper(req.body.token);
 
   const decode = jwt.decode(req.body.token);
@@ -37,6 +40,8 @@ export const seed: Scrapper.Handler = async (req, res) => {
   let getUser: UserEntity;
 
   try {
+    log('Getting user infos...!');
+
     const data = await apolloClient.getUserEmail({ id: `${decode?.sub}` });
 
     getUser = data.getUser;
@@ -52,20 +57,26 @@ export const seed: Scrapper.Handler = async (req, res) => {
   }
 
   if (!getUser) {
-    return res.status(200).json({ message: 'All done!' });
+    error('Unauthenticated! User Not Found...');
+
+    return res
+      .status(401)
+      .json({ message: 'Unauthenticated! User Not Found...' });
   }
 
-  console.log('Starting the browser...');
+  log('User found!\n');
+
+  log('Starting the browser...');
 
   const browser = await puppeteer.launch(options);
   const page = await browser.newPage();
 
-  console.log('Browser ON!');
+  log('Browser active!\n');
 
   let cookies: Protocol.Network.Cookie[] = [];
 
   // Sign In
-  console.log('Initiate Sign In process!');
+  log('Starting "Sign In" process!');
 
   try {
     await page.goto(scrapper.accountLogin);
@@ -88,9 +99,9 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
     cookies = await page.cookies();
 
-    console.log('Sign In Success!');
+    log('Sign In Success!');
   } catch (e) {
-    console.error({ e });
+    error('Sign In failure: ', { e });
     if (
       (<Error>e).message ===
       'waiting for selector `.sidebar-menu` failed: timeout 3000ms exceeded'
@@ -144,8 +155,7 @@ export const seed: Scrapper.Handler = async (req, res) => {
   let appointments: Scrapper.Appointment[] = [];
 
   const getClients = async () => {
-    // Read Clients
-    console.log('Initiate Read Clients process!');
+    log('\nStarting "Get Clients" process!');
 
     try {
       const response = await api.get('/Worksheet/Read');
@@ -184,17 +194,16 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
       await Promise.all(clientsPromise);
 
-      console.log('Finalize Read Clients process!');
+      log('End of "Get Clients" process!');
     } catch (e) {
-      console.error('Error on list clients: ', e);
+      error('Error on "Get Clients" process!', e);
     }
   };
 
   await getClients();
 
   const getProjects = async (idCustomer: number): Promise<void> => {
-    // Read Projects
-    console.log('Initiate Read Projects process!');
+    log('\nStarting "Get Projects" process!');
 
     try {
       const { data } = await api.post<Omit<Scrapper.Project, 'progress'>[]>(
@@ -204,10 +213,10 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
       projects = projects.concat(data);
     } catch (e) {
-      console.error('Error on list projects: ', e);
+      error('Error on "Get Projects" process!', e);
     }
 
-    console.log('Finalize Read Projects process!');
+    log('End of "Get Projects" process!');
   };
 
   if (clients.length <= 0) {
@@ -223,9 +232,13 @@ export const seed: Scrapper.Handler = async (req, res) => {
       await apolloClient.createClient({ code: id, name: title });
     } catch (e) {
       if ((<ApolloError>e).graphQLErrors.length > 0) {
-        console.log(
-          { title },
-          (<{ graphQLErrors: GraphQLError[] }>e).graphQLErrors[0].message
+        const { message } = (<{ graphQLErrors: GraphQLError[] }>e)
+          .graphQLErrors[0];
+
+        error(
+          `Erro on save client ${clientPos + 1} of ${
+            clients.length
+          }: ${message}`
         );
       } else {
         throw e;
@@ -243,9 +256,10 @@ export const seed: Scrapper.Handler = async (req, res) => {
     await saveClient(0);
   } catch (e) {
     if ((<ApolloError>e).networkError) {
-      console.log({
-        error: (<{ networkError: { code: string } }>e).networkError.code,
-      });
+      error(
+        'Error on "Save Client" process!',
+        (<{ networkError: { code: string } }>e).networkError.code
+      );
 
       await page.close();
 
@@ -264,8 +278,7 @@ export const seed: Scrapper.Handler = async (req, res) => {
   }
 
   const getCategories = async (idProject: number): Promise<void> => {
-    // Read Categories
-    console.log('Initiate Read Categories process!');
+    log('\nStarting "Get Categories" process!');
 
     try {
       const { data } = await api.post<Scrapper.Category[]>(
@@ -279,11 +292,13 @@ export const seed: Scrapper.Handler = async (req, res) => {
         }
       });
     } catch (e) {
-      console.error('Error on list categories: ', e);
+      error('Error on "Get Categories" process!', e);
     }
 
-    console.log('Finalize Read Projects process!');
+    log('End of "Get Categories" process!');
   };
+
+  log('\nStarting "Save Projects" process!');
 
   const saveProject = async (projectPos: number) => {
     const { Id, Name, EndDate, StartDate, IdCustomer } = projects[projectPos];
@@ -297,9 +312,29 @@ export const seed: Scrapper.Handler = async (req, res) => {
         clientCode: String(IdCustomer),
       });
     } catch (e) {
-      console.log(
-        { Name },
-        (<{ graphQLErrors: GraphQLError[] }>e).graphQLErrors[0].message
+      const { message } = (<{ graphQLErrors: GraphQLError[] }>e)
+        .graphQLErrors[0];
+
+      error(
+        `Error on save project ${projectPos + 1} of ${
+          projects.length
+        }: ${message}`
+      );
+    }
+
+    try {
+      await apolloClient.addProjectToUser({
+        userEmail: getUser.email,
+        projectCode: String(Id),
+      });
+    } catch (e) {
+      const { message } = (<{ graphQLErrors: GraphQLError[] }>e)
+        .graphQLErrors[0];
+
+      error(
+        `Error on add project ${projectPos + 1} of ${
+          projects.length
+        } to user: ${message}`
       );
     }
 
@@ -309,6 +344,8 @@ export const seed: Scrapper.Handler = async (req, res) => {
       await saveProject(projectPos + 1);
     }
   };
+
+  log('End of "Save Projects" process!');
 
   await saveProject(0);
 
@@ -326,15 +363,30 @@ export const seed: Scrapper.Handler = async (req, res) => {
         code: String(Id),
         name: Name,
       });
+    } catch (e) {
+      const { message } = (<{ graphQLErrors: GraphQLError[] }>e)
+        .graphQLErrors[0];
 
+      error(
+        `Error on  save category ${categoryPos + 1} of ${
+          categories.length
+        }: ${message}`
+      );
+    }
+
+    try {
       await apolloClient.addCategoryToProject({
         categoryCode: String(Id),
         projectCode: String(IdProject),
       });
     } catch (e) {
-      console.log(
-        { Name },
-        (<{ graphQLErrors: GraphQLError[] }>e).graphQLErrors[0].message
+      const { message } = (<{ graphQLErrors: GraphQLError[] }>e)
+        .graphQLErrors[0];
+
+      error(
+        `Error on add category ${categoryPos + 1} of ${
+          categories.length
+        } to project: ${message}`
       );
     }
 
@@ -345,16 +397,19 @@ export const seed: Scrapper.Handler = async (req, res) => {
     }
   };
 
+  log('\nStarting "Save Categories" process!');
+
   await saveCategory(0);
 
+  log('End of "Save Categories" process!');
+
   const getAppointments = async () => {
-    console.log('ReadAppointments: Initiate Read Appointments process!');
+    log('\nStarting "Get Appointments" process!');
 
     try {
       await page.goto(scrapper.worksheetRead);
 
       await page.waitForSelector('#tbWorksheet', { timeout: 3000 });
-      console.log('ReadAppointments: Page loaded!');
 
       const localAppointments = await page.evaluate(() => {
         const items: Omit<Scrapper.Appointment, 'descricao' | 'commit'>[] = [];
@@ -397,7 +452,13 @@ export const seed: Scrapper.Handler = async (req, res) => {
       });
 
       const appointmentsWithDescriptionPromise = localAppointments.map(
-        async (appointment) => {
+        async (appointment, appointmentPos) => {
+          log(
+            `Getting appointment ${appointmentPos + 1} of ${
+              localAppointments.length
+            } infos`
+          );
+
           const {
             data: {
               IdCustomer,
@@ -434,8 +495,10 @@ export const seed: Scrapper.Handler = async (req, res) => {
         await Promise.all(appointmentsWithDescriptionPromise);
 
       appointments = appointments.concat(appointmentsWithDescription);
+
+      log('End of "Get Appointments" process!');
     } catch (e) {
-      console.error({ e });
+      error('Error on "Get Appointments" process!', e);
       if (
         (<Error>e).message ===
         'waiting for selector `#tbWorksheet` failed: timeout 3000ms exceeded'
@@ -464,8 +527,6 @@ export const seed: Scrapper.Handler = async (req, res) => {
           }`,
         });
       }
-    } finally {
-      console.log('ReadAppointments: Finalize Read Appointments process!');
     }
   };
 
@@ -517,9 +578,13 @@ export const seed: Scrapper.Handler = async (req, res) => {
       });
     } catch (e) {
       if ((<ApolloError>e).graphQLErrors.length > 0) {
-        console.log(
-          { id },
-          (<{ graphQLErrors: GraphQLError[] }>e).graphQLErrors[0].message
+        const { message } = (<{ graphQLErrors: GraphQLError[] }>e)
+          .graphQLErrors[0];
+
+        error(
+          `Error on save appointment ${appointmentPos + 1} of ${
+            appointments.length
+          }: ${message}`
         );
       } else {
         throw e;
@@ -532,10 +597,17 @@ export const seed: Scrapper.Handler = async (req, res) => {
   };
 
   try {
+    log('\nStarting "Save Appointments" process!');
+
     await saveAppointment(0);
+
+    log('End of "Save Appointments" process!');
   } catch (e) {
     if ((<ApolloError>e).networkError) {
-      console.log({ error: (<ApolloError>e).networkError });
+      error(
+        'Error on "Save Appointment" process!',
+        (<{ networkError: { code: string } }>e).networkError
+      );
 
       await page.close();
 

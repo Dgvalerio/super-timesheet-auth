@@ -5,12 +5,13 @@ import {
 } from '@/utils/appointment.dto';
 import { CategoryEntity, CreateCategoryInput } from '@/utils/category.dto';
 import { ClientEntity, CreateClientInput } from '@/utils/client.dto';
+import { log } from '@/utils/logs';
 import {
   AddCategoryInput,
   CreateProjectInput,
   ProjectEntity,
 } from '@/utils/project.dto';
-import { GetUserInput, UserEntity } from '@/utils/user.dto';
+import { AddProjectInput, GetUserInput, UserEntity } from '@/utils/user.dto';
 
 import {
   ApolloClient,
@@ -56,7 +57,7 @@ export class ApolloClientHelper {
       }
     `);
 
-    if (data) console.log('CreateClient: ', data.createClient);
+    if (data) log('CreateClient: ', data.createClient);
   }
 
   async createProject(input: CreateProjectInput) {
@@ -72,7 +73,20 @@ export class ApolloClientHelper {
       }
     `);
 
-    if (data) console.log('CreateProject: ', data.createProject);
+    if (data) log('CreateProject: ', data.createProject);
+  }
+
+  async addProjectToUser(input: AddProjectInput) {
+    const { data } = await this.mutation<{ addProject: UserEntity }>(gql`
+      mutation {
+        addProject(input: {
+          userEmail: "${input.userEmail}"
+          projectCode: "${input.projectCode}"
+        }) { id }
+      }
+    `);
+
+    if (data) log('AddProjectInput: ', data.addProject);
   }
 
   async createCategory(input: CreateCategoryInput) {
@@ -87,7 +101,7 @@ export class ApolloClientHelper {
       }
     `);
 
-    if (data) console.log('CreateCategory: ', data.createCategory);
+    if (data) log('CreateCategory: ', data.createCategory);
   }
 
   async addCategoryToProject(input: AddCategoryInput) {
@@ -102,7 +116,7 @@ export class ApolloClientHelper {
       }
     `);
 
-    if (data) console.log('AddCategoryInput: ', data.addCategory);
+    if (data) log('AddCategoryInput: ', data.addCategory);
   }
 
   async createAppointment(input: CreateAppointmentInput) {
@@ -128,7 +142,7 @@ export class ApolloClientHelper {
       }
     `);
 
-    if (data) console.log('CreateAppointment: ', data.createAppointment);
+    if (data) log('CreateAppointment: ', data.createAppointment);
   }
 
   async getUserEmail(input: GetUserInput) {

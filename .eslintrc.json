@@ -110,6 +110,7 @@
       "error",
       "always"
     ],
-    "new-cap": "off"
+    "new-cap": "off",
+    "no-console": "warn"
   }
 }
