@@ -30,11 +30,23 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+type AzureInfos {
+  id: ID!
+  login: String!
+  content: String!
+  iv: String!
+  currentMonthWorkedTime: String!
+  user: User!
+  updatedDate: DateTime!
+}
+
 type User {
   id: ID!
+  dailyHours: Int!
   name: String!
   email: String!
   projects: [Project!]!
+  azureInfos: AzureInfos
 }
 
 type Appointment {
@@ -76,6 +88,7 @@ type Query {
   getCategory(input: GetCategoryInput!): Category!
   getAllAppointments: [Appointment!]!
   getAppointment(input: GetAppointmentInput!): Appointment!
+  getAzureInfos(input: GetAzureInfosInput!): AzureInfos!
 }
 
 input GetUserInput {
@@ -105,6 +118,11 @@ input GetAppointmentInput {
   code: String
 }
 
+input GetAzureInfosInput {
+  id: String
+  login: String
+}
+
 type Mutation {
   createUser(input: CreateUserInput!): User!
   deleteUser(input: DeleteUserInput!): Boolean!
@@ -121,12 +139,17 @@ type Mutation {
   createAppointment(input: CreateAppointmentInput!): Appointment!
   updateAppointment(input: UpdateAppointmentInput!): Appointment!
   deleteAppointment(input: DeleteAppointmentInput!): Boolean!
+  createAzureInfos(input: CreateAzureInfosInput!): AzureInfos!
+  updateAzureInfos(input: UpdateAzureInfosInput!): AzureInfos!
+  deleteAzureInfos(input: DeleteAzureInfosInput!): Boolean!
 }
 
 input CreateUserInput {
   name: String!
   email: String!
+  dailyHours: Float!
   password: String!
+  passwordConfirmation: String!
 }
 
 input DeleteUserInput {
@@ -238,4 +261,23 @@ input UpdateAppointmentInput {
 input DeleteAppointmentInput {
   id: String
   code: String
+}
+
+input CreateAzureInfosInput {
+  login: String!
+  password: String!
+  userId: String
+  userEmail: String
+}
+
+input UpdateAzureInfosInput {
+  id: String!
+  login: String
+  currentMonthWorkedTime: String
+  password: String
+}
+
+input DeleteAzureInfosInput {
+  id: String
+  login: String
 }

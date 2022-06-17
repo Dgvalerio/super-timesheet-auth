@@ -3,6 +3,10 @@ import {
   AppointmentEntity,
   CreateAppointmentInput,
 } from '@/utils/appointment.dto';
+import {
+  AzureInfosEntity,
+  UpdateAzureInfosInput,
+} from '@/utils/azure-infos.dto';
 import { CategoryEntity, CreateCategoryInput } from '@/utils/category.dto';
 import { ClientEntity, CreateClientInput } from '@/utils/client.dto';
 import { log } from '@/utils/logs';
@@ -47,7 +51,24 @@ export class ApolloClientHelper {
     return this.client.query<Return>({ query: queryNode });
   }
 
+  // Client
   async createClient(input: CreateClientInput) {
+    let alreadyExists = false;
+
+    try {
+      const { data } = await this.query<{ getClient: ClientEntity }>(gql`
+        query {
+          getClient(input: {
+            code: "${input.code}"
+          }) { id }
+        }
+      `);
+
+      if (data.getClient) alreadyExists = true;
+    } catch (e) {}
+
+    if (alreadyExists) return log('This client already exists.');
+
     const { data } = await this.mutation<{ createClient: ClientEntity }>(gql`
       mutation {
         createClient(input: {
@@ -57,10 +78,27 @@ export class ApolloClientHelper {
       }
     `);
 
-    if (data) log('CreateClient: ', data.createClient);
+    if (data) log('Client created successfully!');
   }
 
+  // Project
   async createProject(input: CreateProjectInput) {
+    let alreadyExists = false;
+
+    try {
+      const { data } = await this.query<{ getProject: ProjectEntity }>(gql`
+        query {
+          getProject(input: {
+            code: "${input.code}"
+          }) { id }
+        }
+      `);
+
+      if (data.getProject) alreadyExists = true;
+    } catch (e) {}
+
+    if (alreadyExists) return log('This project already exists.');
+
     const { data } = await this.mutation<{ createProject: ProjectEntity }>(gql`
       mutation {
         createProject(input: {
@@ -73,38 +111,31 @@ export class ApolloClientHelper {
       }
     `);
 
-    if (data) log('CreateProject: ', data.createProject);
-  }
-
-  async addProjectToUser(input: AddProjectInput) {
-    const { data } = await this.mutation<{ addProject: UserEntity }>(gql`
-      mutation {
-        addProject(input: {
-          userEmail: "${input.userEmail}"
-          projectCode: "${input.projectCode}"
-        }) { id }
-      }
-    `);
-
-    if (data) log('AddProjectInput: ', data.addProject);
-  }
-
-  async createCategory(input: CreateCategoryInput) {
-    const { data } = await this.mutation<{
-      createCategory: CategoryEntity;
-    }>(gql`
-      mutation {
-        createCategory(input: {
-          code: "${input.code}"
-          name: "${input.name}"
-        }) { id }
-      }
-    `);
-
-    if (data) log('CreateCategory: ', data.createCategory);
+    if (data) log('Project created successfully!');
   }
 
   async addCategoryToProject(input: AddCategoryInput) {
+    let alreadyExists = false;
+
+    try {
+      const { data } = await this.query<{ getProject: ProjectEntity }>(gql`
+        query {
+          getProject(input: {
+            code: "${input.projectCode}"
+          }) { id }
+        }
+      `);
+
+      if (
+        data.getProject.categories.find(
+          ({ code }) => code === input.categoryCode
+        )
+      )
+        alreadyExists = true;
+    } catch (e) {}
+
+    if (alreadyExists) return log('Category already added to project');
+
     const { data } = await this.mutation<{
       addCategory: ProjectEntity;
     }>(gql`
@@ -116,10 +147,106 @@ export class ApolloClientHelper {
       }
     `);
 
-    if (data) log('AddCategoryInput: ', data.addCategory);
+    if (data) log('Category added to project successfully!');
   }
 
+  // User
+  async addProjectToUser(input: AddProjectInput) {
+    let alreadyExists = false;
+
+    try {
+      const { data } = await this.query<{ getUser: UserEntity }>(gql`
+        query {
+          getUser(input: {
+            email: "${input.userEmail}"
+          }) { id }
+        }
+      `);
+
+      if (data.getUser.projects.find(({ code }) => code === input.projectCode))
+        alreadyExists = true;
+    } catch (e) {}
+
+    if (alreadyExists) return log('Project already added to user');
+
+    const { data } = await this.mutation<{ addProject: UserEntity }>(gql`
+      mutation {
+        addProject(input: {
+          userEmail: "${input.userEmail}"
+          projectCode: "${input.projectCode}"
+        }) { id }
+      }
+    `);
+
+    if (data) log('Project added to user successfully!');
+  }
+
+  async getUserEmail(input: GetUserInput) {
+    const { data } = await this.query<{ getUser: UserEntity }>(gql`
+      query {
+        getUser(input: { id: "${input.id}" }) {
+          id
+          email
+          name
+        }
+      }
+    `);
+
+    return data;
+  }
+
+  // Category
+  async createCategory(input: CreateCategoryInput) {
+    let alreadyExists = false;
+
+    try {
+      const { data } = await this.query<{ getCategory: ProjectEntity }>(gql`
+        query {
+          getCategory(input: {
+            code: "${input.code}"
+          }) { id }
+        }
+      `);
+
+      if (data.getCategory) alreadyExists = true;
+    } catch (e) {}
+
+    if (alreadyExists) return log('This category already exists.');
+
+    const { data } = await this.mutation<{
+      createCategory: CategoryEntity;
+    }>(gql`
+      mutation {
+        createCategory(input: {
+          code: "${input.code}"
+          name: "${input.name}"
+        }) { id }
+      }
+    `);
+
+    if (data) log('Category created successfully!');
+  }
+
+  // Appointment
   async createAppointment(input: CreateAppointmentInput) {
+    let alreadyExists = false;
+
+    try {
+      const { data } = await this.query<{
+        getAppointment: AppointmentEntity;
+      }>(gql`
+        query {
+          getAppointment(input: {
+            code: "${input.code}"
+          }) { id }
+        }
+      `);
+
+      if (data.getAppointment) alreadyExists = true;
+    } catch (e) {}
+
+    if (alreadyExists) return log('This appointment already exists.');
+
     const { data } = await this.mutation<{
       createAppointment: AppointmentEntity;
     }>(gql`
@@ -136,26 +263,44 @@ export class ApolloClientHelper {
           projectCode: "${input.projectCode}",
           categoryCode: "${input.categoryCode}",
           description: """
-            ${input.description}
+          ${input.description}
           """
         }) { id }
       }
     `);
 
-    if (data) log('CreateAppointment: ', data.createAppointment);
+    if (data) log('Appointment created successfully!');
   }
 
-  async getUserEmail(input: GetUserInput) {
-    const { data } = await this.query<{ getUser: UserEntity }>(gql`
+  // Azure Infos
+  async updateAzureInfosCurrentMonthWorkedTime(
+    input: Pick<UpdateAzureInfosInput, 'login' | 'currentMonthWorkedTime'>
+  ) {
+    const {
+      data: {
+        getAzureInfos: { id },
+      },
+    } = await this.query<{
+      getAzureInfos: AzureInfosEntity;
+    }>(gql`
       query {
-        getUser(input: { id: "${input.id}" }) {
-          id
-          email
-          name
-        }
+        getAzureInfos(input: {
+          login: "${input.login}"
+        }) { id }
       }
     `);
 
-    return data;
+    const { data } = await this.mutation<{
+      updateAzureInfos: AzureInfosEntity;
+    }>(gql`
+      mutation {
+        updateAzureInfos(input: {
+          id: "${id}"
+          currentMonthWorkedTime: "${input.currentMonthWorkedTime}"
+        }) { id }
+      }
+    `);
+
+    if (data) log('Update current month worked time successfully!');
   }
 }

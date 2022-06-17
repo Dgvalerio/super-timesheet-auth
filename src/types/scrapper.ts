@@ -133,3 +133,23 @@ export namespace Scrapper {
 
   export type Handler = RequestHandler<Params, Response, Request>;
 }
+
+export namespace AuthVerify {
+  export interface Params {}
+
+  export interface Request {
+    login: string;
+    password: string;
+  }
+
+  export type Response =
+    | {
+        authenticationIsValid: true;
+      }
+    | {
+        authenticationIsValid: false;
+        error: string;
+      };
+
+  export type Handler = RequestHandler<Params, Response, Request>;
+}

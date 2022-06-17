@@ -4,6 +4,6 @@ export const log = (...toLog: any) => {
   console.log(...toLog);
 };
 
-export const error = (...toLog: any) => {
+export const errorLog = (...toLog: any) => {
   console.error(...toLog);
 };
