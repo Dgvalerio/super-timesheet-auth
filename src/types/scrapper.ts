@@ -153,3 +153,37 @@ export namespace AuthVerify {
 
   export type Handler = RequestHandler<Params, Response, Request>;
 }
+
+export namespace SaveAppointments {
+  export interface Params {}
+
+  export interface Appointment {
+    client: string;
+    project: string;
+    category: string;
+    description: string;
+    date: string;
+    commit?: string;
+    notMonetize: boolean;
+    startTime: string;
+    endTime: string;
+  }
+
+  export interface Request {
+    login: string;
+    password: string;
+    appointments: Appointment[];
+  }
+
+  export type Response =
+    | {
+        message: string;
+        error?: never;
+      }
+    | {
+        message?: never;
+        error: string;
+      };
+
+  export type Handler = RequestHandler<Params, Response, Request>;
+}
