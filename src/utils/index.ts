@@ -12,4 +12,5 @@ export const puppeteerOptions: PuppeteerLaunchOptions = {
     width: 1280,
     height: 768,
   },
+  headless: false,
 };
