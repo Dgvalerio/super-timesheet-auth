@@ -70,7 +70,9 @@ const checkValue = async (
       const value = (<HTMLInputElement>document.querySelector(aSelector)).value;
 
       if (value !== aValue) {
-        (<HTMLInputElement>document.querySelector(aSelector)).value = aValue;
+        (<HTMLInputElement>document.querySelector(aSelector)).value = <string>(
+          aValue
+        );
 
         return false;
       }
@@ -150,7 +152,7 @@ const createAppointment = async (
   page: Page,
   appointment: SaveAppointments.Appointment
 ): Promise<{ saved: boolean; message: string }> => {
-  let saved = false;
+  let saved: boolean;
   let message: string;
 
   log('\nStarting "Create Appointment" process!');
@@ -163,8 +165,6 @@ const createAppointment = async (
       timeout: 3000,
     });
     log(`Now in ${scrapper.worksheetRead}!`);
-
-    log('1 2 3');
 
     await page.select('#IdCustomer', appointment.client);
     await page.waitForResponse((response) =>
@@ -240,6 +240,7 @@ const createAppointment = async (
 
     log('Success!');
     message = 'Success';
+    saved = true;
   } catch (e) {
     saved = false;
 
@@ -275,17 +276,11 @@ const createAppointment = async (
   return { saved, message };
 };
 
-interface CreatedAppointment {
-  appointment: SaveAppointments.Appointment;
-  saved: boolean;
-  message: string;
-}
-
 const createAppointments = async (
   page: Page,
   appointments: SaveAppointments.Appointment[]
-): Promise<CreatedAppointment[]> => {
-  const result: CreatedAppointment[] = [];
+): Promise<SaveAppointments.CreatedAppointment[]> => {
+  const result: SaveAppointments.CreatedAppointment[] = [];
 
   const create = async (index: number) => {
     const appointment = appointments[index];
@@ -343,7 +338,14 @@ export const saveAppointments: SaveAppointments.Handler = async (req, res) => {
     req.body.appointments
   );
 
-  console.log({ createdAppointments });
+  const error = createdAppointments.find(({ saved }) => !saved);
+
+  if (error) {
+    errorLog({ error });
+    await page.close();
+
+    return res.status(400).json({ error: error });
+  }
 
   return done(res, page);
 };

@@ -157,6 +157,12 @@ export namespace AuthVerify {
 export namespace SaveAppointments {
   export interface Params {}
 
+  export interface CreatedAppointment {
+    appointment: SaveAppointments.Appointment;
+    saved: boolean;
+    message: string;
+  }
+
   export interface Appointment {
     client: string;
     project: string;
@@ -182,7 +188,7 @@ export namespace SaveAppointments {
       }
     | {
         message?: never;
-        error: string;
+        error: CreatedAppointment | string;
       };
 
   export type Handler = RequestHandler<Params, Response, Request>;
