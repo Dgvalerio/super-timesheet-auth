@@ -588,8 +588,17 @@ const saveAppointments = async (
       case 'Aprovada':
         status = AppointmentStatus.Approved;
         break;
+      case 'Pré-Aprovada':
+        status = AppointmentStatus.PreApproved;
+        break;
+      case 'Em análise':
+        status = AppointmentStatus.Review;
+        break;
+      case 'Reprovada':
+        status = AppointmentStatus.Unapproved;
+        break;
       default:
-        status = AppointmentStatus.Draft;
+        status = AppointmentStatus.Unknown;
     }
 
     try {
@@ -639,7 +648,9 @@ const getTimeInterval = async (
           .value;
 
         if (value !== aValue) {
-          (<HTMLInputElement>document.querySelector(aSelector)).value = aValue;
+          (<HTMLInputElement>document.querySelector(aSelector)).value = <
+            string
+          >aValue;
 
           return false;
         }

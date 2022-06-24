@@ -3,10 +3,12 @@ import { ProjectEntity } from '@/utils/project.dto';
 import { UserEntity } from '@/utils/user.dto';
 
 export enum AppointmentStatus {
+  PreApproved = 'PreApproved',
   Approved = 'Approved',
   Review = 'Review',
   Unapproved = 'Unapproved',
   Draft = 'Draft',
+  Unknown = 'Unknown',
 }
 
 export interface AppointmentEntity {
