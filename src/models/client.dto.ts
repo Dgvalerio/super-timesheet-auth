@@ -1,4 +1,4 @@
-import { ProjectEntity } from '@/utils/project.dto';
+import { ProjectEntity } from '@/models/project.dto';
 
 export interface ClientEntity {
   id: string;

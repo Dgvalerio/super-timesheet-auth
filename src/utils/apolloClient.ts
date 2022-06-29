@@ -2,20 +2,20 @@
 import {
   AppointmentEntity,
   CreateAppointmentInput,
-} from '@/utils/appointment.dto';
+} from '@/models/appointment.dto';
 import {
   AzureInfosEntity,
   UpdateAzureInfosInput,
-} from '@/utils/azure-infos.dto';
-import { CategoryEntity, CreateCategoryInput } from '@/utils/category.dto';
-import { ClientEntity, CreateClientInput } from '@/utils/client.dto';
-import { log } from '@/utils/logs';
+} from '@/models/azure-infos.dto';
+import { CategoryEntity, CreateCategoryInput } from '@/models/category.dto';
+import { ClientEntity, CreateClientInput } from '@/models/client.dto';
 import {
   AddCategoryInput,
   CreateProjectInput,
   ProjectEntity,
-} from '@/utils/project.dto';
-import { AddProjectInput, GetUserInput, UserEntity } from '@/utils/user.dto';
+} from '@/models/project.dto';
+import { AddProjectInput, GetUserInput, UserEntity } from '@/models/user.dto';
+import { log } from '@/utils/logs';
 
 import {
   ApolloClient,

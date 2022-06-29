@@ -1,3 +1,7 @@
+import { AppointmentEntity, AppointmentStatus } from '@/models/appointment.dto';
+import { CategoryEntity } from '@/models/category.dto';
+import { ProjectEntity } from '@/models/project.dto';
+import { UserEntity } from '@/models/user.dto';
 import {
   apiFactory,
   puppeteerErrorHandler,
@@ -5,12 +9,8 @@ import {
 } from '@/scrapper/seed';
 import { SaveAppointments, Scrapper } from '@/types/scrapper';
 import { puppeteerOptions } from '@/utils';
-import { AppointmentEntity, AppointmentStatus } from '@/utils/appointment.dto';
-import { CategoryEntity } from '@/utils/category.dto';
 import { errorLog, log } from '@/utils/logs';
-import { ProjectEntity } from '@/utils/project.dto';
 import { scrapper } from '@/utils/scrapper';
-import { UserEntity } from '@/utils/user.dto';
 
 import { AxiosInstance } from 'axios';
 import { Request as Req, Response as Res } from 'express';

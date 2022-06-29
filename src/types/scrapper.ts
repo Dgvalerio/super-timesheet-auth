@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
-import { AppointmentEntity } from '@/utils/appointment.dto';
+import { AppointmentEntity } from '@/models/appointment.dto';
 
 import { RequestHandler } from 'express';
 

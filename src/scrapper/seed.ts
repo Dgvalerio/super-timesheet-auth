@@ -1,10 +1,10 @@
+import { AppointmentStatus } from '@/models/appointment.dto';
+import { UserEntity } from '@/models/user.dto';
 import { Scrapper } from '@/types/scrapper';
 import { brDateToISO, puppeteerOptions } from '@/utils';
 import { ApolloClientHelper } from '@/utils/apolloClient';
-import { AppointmentStatus } from '@/utils/appointment.dto';
 import { errorLog, log } from '@/utils/logs';
 import { scrapper } from '@/utils/scrapper';
-import { UserEntity } from '@/utils/user.dto';
 
 import { ApolloError } from 'apollo-boost';
 import axios, { AxiosInstance } from 'axios';
