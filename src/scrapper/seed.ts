@@ -1,5 +1,6 @@
 import { AppointmentStatus } from '@/models/appointment.dto';
 import { UserEntity } from '@/models/user.dto';
+import { apiFactory } from '@/scrapper/api';
 import { Scrapper } from '@/types/scrapper';
 import { brDateToISO, puppeteerOptions } from '@/utils';
 import { ApolloClientHelper } from '@/utils/apolloClient';
@@ -7,7 +8,7 @@ import { errorLog, log } from '@/utils/logs';
 import { scrapper } from '@/utils/scrapper';
 
 import { ApolloError } from 'apollo-boost';
-import axios, { AxiosInstance } from 'axios';
+import { AxiosInstance } from 'axios';
 import { endOfMonth, format } from 'date-fns';
 import { Request as Req, Response as Res } from 'express';
 import jwt from 'jsonwebtoken';
@@ -19,30 +20,6 @@ const done = async (res: Res<Scrapper.Response>, page?: Page) => {
   log(`[${200}]: All done!`);
 
   return res.status(200).json({ message: 'All done!' });
-};
-
-export const apiFactory = (cookies: Protocol.Network.Cookie[]) => {
-  const cookie: string = cookies.reduce(
-    (previous, { name, value }) => `${previous} ${name}=${value};`,
-    ''
-  );
-
-  return axios.create({
-    baseURL: 'https://luby-timesheet.azurewebsites.net',
-    headers: {
-      accept: 'application/json, text/javascript, */*; q=0.01',
-      'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-      'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      'sec-fetch-dest': 'empty',
-      'sec-fetch-mode': 'cors',
-      'sec-fetch-site': 'same-origin',
-      'sec-gpc': '1',
-      'x-requested-with': 'XMLHttpRequest',
-      cookie,
-      Referer: 'https://luby-timesheet.azurewebsites.net/Worksheet/Read',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
-    },
-  });
 };
 
 const validateFields = (

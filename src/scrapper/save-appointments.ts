@@ -2,11 +2,8 @@ import { AppointmentEntity, AppointmentStatus } from '@/models/appointment.dto';
 import { CategoryEntity } from '@/models/category.dto';
 import { ProjectEntity } from '@/models/project.dto';
 import { UserEntity } from '@/models/user.dto';
-import {
-  apiFactory,
-  puppeteerErrorHandler,
-  statusAdapter,
-} from '@/scrapper/seed';
+import { apiFactory } from '@/scrapper/api';
+import { puppeteerErrorHandler, statusAdapter } from '@/scrapper/seed';
 import { SaveAppointments, Scrapper } from '@/types/scrapper';
 import { puppeteerOptions } from '@/utils';
 import { errorLog, log } from '@/utils/logs';
