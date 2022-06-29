@@ -1,12 +1,14 @@
-import { CategoryEntity } from '@/utils/category.dto';
-import { ProjectEntity } from '@/utils/project.dto';
-import { UserEntity } from '@/utils/user.dto';
+import { CategoryEntity } from '@/models/category.dto';
+import { ProjectEntity } from '@/models/project.dto';
+import { UserEntity } from '@/models/user.dto';
 
 export enum AppointmentStatus {
+  PreApproved = 'PreApproved',
   Approved = 'Approved',
   Review = 'Review',
   Unapproved = 'Unapproved',
   Draft = 'Draft',
+  Unknown = 'Unknown',
 }
 
 export interface AppointmentEntity {

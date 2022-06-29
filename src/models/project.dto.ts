@@ -1,5 +1,5 @@
-import { CategoryEntity } from '@/utils/category.dto';
-import { ClientEntity } from '@/utils/client.dto';
+import { CategoryEntity } from '@/models/category.dto';
+import { ClientEntity } from '@/models/client.dto';
 
 export interface ProjectEntity {
   id: string;

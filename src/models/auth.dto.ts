@@ -1,4 +1,4 @@
-import { UserEntity } from '@/utils/user.dto';
+import { UserEntity } from '@/models/user.dto';
 
 export interface AuthInput {
   email: UserEntity['email'];
