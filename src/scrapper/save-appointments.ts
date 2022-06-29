@@ -1,19 +1,20 @@
-import { puppeteerErrorHandler } from '@/scrapper/seed';
-import { SaveAppointments } from '@/types/scrapper';
+import {
+  apiFactory,
+  puppeteerErrorHandler,
+  statusAdapter,
+} from '@/scrapper/seed';
+import { SaveAppointments, Scrapper } from '@/types/scrapper';
 import { puppeteerOptions } from '@/utils';
+import { AppointmentEntity, AppointmentStatus } from '@/utils/appointment.dto';
+import { CategoryEntity } from '@/utils/category.dto';
 import { errorLog, log } from '@/utils/logs';
+import { ProjectEntity } from '@/utils/project.dto';
 import { scrapper } from '@/utils/scrapper';
+import { UserEntity } from '@/utils/user.dto';
 
+import { AxiosInstance } from 'axios';
 import { Request as Req, Response as Res } from 'express';
 import puppeteer, { Page, Protocol } from 'puppeteer';
-
-const done = async (res: Res<SaveAppointments.Response>, page?: Page) => {
-  if (page) await page.close();
-
-  log(`[${200}]: All done!`);
-
-  return res.status(200).json({ message: 'All done!' });
-};
 
 const validateFields = (
   req: Req<
@@ -24,17 +25,23 @@ const validateFields = (
   res: Res<SaveAppointments.Response>
 ) => {
   if (!req.body.login) {
-    res.status(400).json({ error: 'login should not be empty' });
+    res
+      .status(400)
+      .json([{ saved: false, message: 'login should not be empty' }]);
 
     return false;
   }
   if (!req.body.password) {
-    res.status(400).json({ error: 'password should not be empty' });
+    res
+      .status(400)
+      .json([{ saved: false, message: 'password should not be empty' }]);
 
     return false;
   }
   if (!req.body.appointments || !Array.isArray(req.body.appointments)) {
-    res.status(400).json({ error: 'appointments must be an array' });
+    res
+      .status(400)
+      .json([{ saved: false, message: 'appointments must be an array' }]);
 
     return false;
   }
@@ -118,7 +125,7 @@ const signInScrapper = async (
 
     if (page.url() !== scrapper.homeIndex) {
       errorLog(`[${406}]: Invalid login`);
-      res.status(406).json({ error: 'Invalid login' });
+      res.status(406).json([{ saved: false, message: 'Invalid login' }]);
 
       return [];
     }
@@ -130,7 +137,7 @@ const signInScrapper = async (
 
     if (!cookies) {
       errorLog(`[${500}]: Cookies not loaded`);
-      res.status(500).json({ error: 'Cookies not loaded' });
+      res.status(500).json([{ saved: false, message: 'Cookies not loaded' }]);
 
       return [];
     }
@@ -142,10 +149,107 @@ const signInScrapper = async (
     const { error, code } = puppeteerErrorHandler(e as Error);
 
     errorLog(`[${code}]: ${error}`);
-    res.status(code).json({ error });
+    res.status(code).json([{ saved: false, message: error }]);
 
     return [];
   }
+};
+
+const getFirstAppointment = async (
+  page: Page,
+  api: AxiosInstance,
+  res: Res<SaveAppointments.Response>
+): Promise<Scrapper.Appointment | undefined> => {
+  let appointment;
+
+  log('\nStarting "Get Appointments" process!');
+
+  try {
+    await page.goto(scrapper.worksheetRead);
+
+    await page.waitForSelector('#tbWorksheet', { timeout: 3000 });
+
+    const localAppointment = await page.evaluate(() => {
+      const getInnerText = (field: unknown) =>
+        (field as HTMLTableColElement)?.innerText;
+
+      const getChecked = (field: unknown) =>
+        ((field as HTMLTableColElement)?.children[0] as HTMLInputElement)
+          .checked;
+
+      const getId = (field: unknown) =>
+        (field as HTMLTableColElement)?.children[0].id;
+
+      const item = document.querySelector(
+        '#tbWorksheet > tbody > tr:first-child'
+      );
+
+      if (!item) return;
+
+      return {
+        id: getId(item.children[9]),
+        cliente: getInnerText(item.children[0]),
+        projeto: getInnerText(item.children[1]),
+        categoria: getInnerText(item.children[2]),
+        data: getInnerText(item.children[3]),
+        horaInicial: getInnerText(item.children[4]),
+        horaFinal: getInnerText(item.children[5]),
+        naoContabilizado: getChecked(item.children[7]),
+        avaliacao: getInnerText(item.children[8]),
+      };
+    });
+
+    if (!localAppointment) return;
+
+    log(`Getting appointment infos`);
+
+    const {
+      data: {
+        IdCustomer,
+        IdProject,
+        IdCategory,
+        InformedDate,
+        StartTime,
+        EndTime,
+        NotMonetize,
+        Description,
+        CommitRepository,
+      },
+    } = await api.get<Scrapper.FullAppointment>(
+      `/Worksheet/Update?id=${localAppointment.id}`
+    );
+
+    appointment = {
+      id: localAppointment.id,
+      cliente: String(IdCustomer),
+      projeto: String(IdProject),
+      categoria: String(IdCategory),
+      data: InformedDate,
+      horaInicial: StartTime,
+      horaFinal: EndTime,
+      descricao: Description,
+      naoContabilizado: NotMonetize,
+      avaliacao: localAppointment.avaliacao,
+      commit: CommitRepository || '',
+    };
+  } catch (e) {
+    errorLog('Error on "Get Appointment" process!', e);
+
+    const { error, code } = puppeteerErrorHandler(e as Error);
+
+    errorLog(`[${code}]: ${error}`);
+  }
+
+  if (!appointment) {
+    errorLog('Appointment not loaded');
+    res
+      .status(500)
+      .json([{ saved: false, message: 'Appointments not loaded' }]);
+  }
+
+  log('End of "Get Appointment" process!');
+
+  return appointment;
 };
 
 const createAppointment = async (
@@ -276,8 +380,50 @@ const createAppointment = async (
   return { saved, message };
 };
 
+const appointmentAdapter = (
+  previous: Scrapper.Appointment
+): SaveAppointments.Appointment => ({
+  id: previous.id,
+  client: previous.cliente,
+  project: previous.projeto,
+  category: previous.categoria,
+  description: previous.descricao,
+  date: previous.data.replace(/\//g, ''),
+  commit: previous.commit === 'Não aplicado' ? undefined : previous.commit,
+  notMonetize: previous.naoContabilizado,
+  startTime: previous.horaInicial.replace(/:/g, ''),
+  endTime: previous.horaFinal.replace(/:/g, ''),
+});
+
+const appointmentEntityAdapter = (
+  local: SaveAppointments.Appointment,
+  azure?: Scrapper.Appointment
+): AppointmentEntity => ({
+  id: local.id,
+  code: azure ? azure.id : '',
+  date: azure ? azure.data : local.date,
+  startTime: azure ? azure.horaInicial : local.startTime,
+  endTime: azure ? azure.horaFinal : local.endTime,
+  notMonetize: local.notMonetize,
+  description: local.description,
+  commit: azure ? azure.commit : local.commit,
+  status: azure ? statusAdapter(azure.avaliacao) : AppointmentStatus.Draft,
+  user: {} as UserEntity,
+  project: { code: local.project } as ProjectEntity,
+  category: { code: local.category } as CategoryEntity,
+});
+
+const appointmentCompare = (
+  scrapperAppointment: Scrapper.Appointment,
+  appointmentEntity: SaveAppointments.Appointment
+): boolean =>
+  JSON.stringify({ ...appointmentEntity, id: '' }) ===
+  JSON.stringify(appointmentAdapter({ ...scrapperAppointment, id: '' }));
+
 const createAppointments = async (
   page: Page,
+  api: AxiosInstance,
+  res: Res<SaveAppointments.Response>,
   appointments: SaveAppointments.Appointment[]
 ): Promise<SaveAppointments.CreatedAppointment[]> => {
   const result: SaveAppointments.CreatedAppointment[] = [];
@@ -287,7 +433,54 @@ const createAppointments = async (
 
     const { saved, message } = await createAppointment(page, appointment);
 
-    result.push({ message, saved, appointment });
+    if (!saved) {
+      if (
+        message ===
+        'O registro não pode ser realizado pois já existe um Apontamento dentro do intervalo de data e hora indicados'
+      ) {
+        const azureAppointment = await getFirstAppointment(page, api, res);
+
+        if (!azureAppointment)
+          return result.push({
+            message,
+            saved,
+            appointment: appointmentEntityAdapter(appointment),
+          });
+        if (appointmentCompare(azureAppointment, appointment)) {
+          result.push({
+            message,
+            saved: true,
+            appointment: appointmentEntityAdapter(
+              appointment,
+              azureAppointment
+            ),
+          });
+        }
+      } else {
+        result.push({
+          message,
+          saved,
+          appointment: appointmentEntityAdapter(appointment),
+        });
+      }
+    } else {
+      const azureAppointment = await getFirstAppointment(page, api, res);
+
+      if (!azureAppointment)
+        return result.push({
+          message,
+          saved,
+          appointment: appointmentEntityAdapter(appointment),
+        });
+
+      result.push({
+        message,
+        saved,
+        appointment: appointmentCompare(azureAppointment, appointment)
+          ? appointmentEntityAdapter(appointment, azureAppointment)
+          : appointmentEntityAdapter(appointment),
+      });
+    }
 
     if (saved && index < appointments.length - 1) await create(index + 1);
   };
@@ -300,7 +493,11 @@ const createAppointments = async (
 export const saveAppointments: SaveAppointments.Handler = async (req, res) => {
   if (!validateFields(req, res)) return;
 
-  if (req.body.appointments.length <= 0) return done(res);
+  if (req.body.appointments.length <= 0) {
+    return res
+      .status(200)
+      .json([{ saved: true, message: 'There are no appointments to save.' }]);
+  }
 
   let allValid = true;
 
@@ -310,9 +507,12 @@ export const saveAppointments: SaveAppointments.Handler = async (req, res) => {
     if (errors.length > 0) {
       const msg = errors.reduce((error, concat) => error + ' \n ' + concat);
 
-      res
-        .status(400)
-        .json({ error: `In appointment on index ${index}:\n${msg}` });
+      res.status(400).json([
+        {
+          saved: false,
+          message: `In appointment on index ${index}:\n${msg}`,
+        },
+      ]);
 
       allValid = false;
     }
@@ -333,19 +533,18 @@ export const saveAppointments: SaveAppointments.Handler = async (req, res) => {
 
   if (cookies.length <= 0) return await page.close();
 
+  const api = apiFactory(cookies);
+
   const createdAppointments = await createAppointments(
     page,
+    api,
+    res,
     req.body.appointments
   );
 
-  const error = createdAppointments.find(({ saved }) => !saved);
+  if (page) await page.close();
 
-  if (error) {
-    errorLog({ error });
-    await page.close();
+  log(`[${200}]: All done!`);
 
-    return res.status(400).json({ error: error });
-  }
-
-  return done(res, page);
+  return res.status(200).json(createdAppointments);
 };

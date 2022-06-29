@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
+import { AppointmentEntity } from '@/utils/appointment.dto';
+
 import { RequestHandler } from 'express';
 
 export namespace Scrapper {
@@ -158,12 +160,13 @@ export namespace SaveAppointments {
   export interface Params {}
 
   export interface CreatedAppointment {
-    appointment: SaveAppointments.Appointment;
+    appointment?: AppointmentEntity;
     saved: boolean;
     message: string;
   }
 
   export interface Appointment {
+    id: string;
     client: string;
     project: string;
     category: string;
@@ -181,15 +184,7 @@ export namespace SaveAppointments {
     appointments: Appointment[];
   }
 
-  export type Response =
-    | {
-        message: string;
-        error?: never;
-      }
-    | {
-        message?: never;
-        error: CreatedAppointment | string;
-      };
+  export type Response = CreatedAppointment[];
 
   export type Handler = RequestHandler<Params, Response, Request>;
 }

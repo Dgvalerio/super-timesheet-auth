@@ -21,7 +21,7 @@ const done = async (res: Res<Scrapper.Response>, page?: Page) => {
   return res.status(200).json({ message: 'All done!' });
 };
 
-const apiFactory = (cookies: Protocol.Network.Cookie[]) => {
+export const apiFactory = (cookies: Protocol.Network.Cookie[]) => {
   const cookie: string = cookies.reduce(
     (previous, { name, value }) => `${previous} ${name}=${value};`,
     ''
@@ -563,6 +563,21 @@ const getAppointments = async (
   return appointments;
 };
 
+export const statusAdapter = (previous: string): AppointmentStatus => {
+  switch (previous) {
+    case 'Aprovada':
+      return AppointmentStatus.Approved;
+    case 'Pré-Aprovada':
+      return AppointmentStatus.PreApproved;
+    case 'Em análise':
+      return AppointmentStatus.Review;
+    case 'Reprovada':
+      return AppointmentStatus.Unapproved;
+    default:
+      return AppointmentStatus.Unknown;
+  }
+};
+
 const saveAppointments = async (
   appointments: Scrapper.Appointment[],
   userEmail: string,
@@ -582,25 +597,6 @@ const saveAppointments = async (
       categoria,
     } = appointments[index];
 
-    let status: AppointmentStatus;
-
-    switch (avaliacao) {
-      case 'Aprovada':
-        status = AppointmentStatus.Approved;
-        break;
-      case 'Pré-Aprovada':
-        status = AppointmentStatus.PreApproved;
-        break;
-      case 'Em análise':
-        status = AppointmentStatus.Review;
-        break;
-      case 'Reprovada':
-        status = AppointmentStatus.Unapproved;
-        break;
-      default:
-        status = AppointmentStatus.Unknown;
-    }
-
     try {
       await apolloClient.createAppointment({
         code: id,
@@ -610,7 +606,7 @@ const saveAppointments = async (
         notMonetize: naoContabilizado,
         description: descricao,
         commit: commit,
-        status,
+        status: statusAdapter(avaliacao),
         userEmail,
         projectCode: projeto,
         categoryCode: categoria,
