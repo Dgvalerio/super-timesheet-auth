@@ -33,7 +33,7 @@ export class ApolloClientHelper {
   constructor(token: string) {
     this.client = new ApolloClient({
       link: new HttpLink({
-        uri: 'http://localhost:3001/graphql',
+        uri: process.env.API_URL,
         fetch,
         headers: {
           authorization: `Bearer ${token}`,
