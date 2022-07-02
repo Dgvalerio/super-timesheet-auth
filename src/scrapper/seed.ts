@@ -617,7 +617,6 @@ const getTimeInterval = async (
 
   const now = new Date();
 
-  now.setMonth(now.getMonth() - 1);
   now.setDate(1);
 
   const startDate = format(now, 'dd/MM/yyyy');
