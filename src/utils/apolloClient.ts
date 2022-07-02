@@ -259,7 +259,6 @@ export class ApolloClientHelper {
           notMonetize: ${input.notMonetize},
           commit: "${input.commit}",
           status: ${input.status},
-          userEmail: "${input.userEmail}",
           projectCode: "${input.projectCode}",
           categoryCode: "${input.categoryCode}",
           description: """
@@ -284,9 +283,9 @@ export class ApolloClientHelper {
       getAzureInfos: AzureInfosEntity;
     }>(gql`
       query {
-        getAzureInfos(input: {
-          login: "${input.login}"
-        }) { id }
+        getAzureInfos {
+          id
+        }
       }
     `);
 

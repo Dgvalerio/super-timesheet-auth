@@ -66,10 +66,18 @@ type Appointment {
 
 """Current status of appointment."""
 enum AppointmentStatus {
+  PreApproved
   Approved
   Review
   Unapproved
   Draft
+  Unknown
+}
+
+type SaveAppointmentOutput {
+  appointment: Appointment
+  saved: Boolean!
+  message: String!
 }
 
 type AuthOutput {
@@ -88,7 +96,8 @@ type Query {
   getCategory(input: GetCategoryInput!): Category!
   getAllAppointments: [Appointment!]!
   getAppointment(input: GetAppointmentInput!): Appointment!
-  getAzureInfos(input: GetAzureInfosInput!): AzureInfos!
+  sendAppointments: [SaveAppointmentOutput!]!
+  getAzureInfos: AzureInfos!
 }
 
 input GetUserInput {
@@ -116,11 +125,6 @@ input GetCategoryInput {
 input GetAppointmentInput {
   id: String
   code: String
-}
-
-input GetAzureInfosInput {
-  id: String
-  login: String
 }
 
 type Mutation {
@@ -226,12 +230,10 @@ input CreateAppointmentInput {
   date: DateTime!
   startTime: String!
   endTime: String!
-  notMonetize: Boolean!
+  notMonetize: Boolean
   description: String!
   commit: String
-  status: AppointmentStatus!
-  userId: String
-  userEmail: String
+  status: AppointmentStatus
   projectId: String
   projectCode: String
   categoryId: String

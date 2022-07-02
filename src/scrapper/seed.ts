@@ -124,7 +124,6 @@ const signInScrapper = async (
   req: Req<Scrapper.Params, Scrapper.Response, Scrapper.Request>,
   res: Res<Scrapper.Response>
 ): Promise<Protocol.Network.Cookie[]> => {
-  // Sign In
   log('Starting "Sign In" process!');
 
   try {
@@ -463,18 +462,6 @@ const getAppointments = async (
 
       pushItems();
 
-      while (
-        !document
-          .querySelector('#tbWorksheet_next')
-          ?.classList.contains('disabled')
-      ) {
-        (<HTMLButtonElement>(
-          document.querySelector('#tbWorksheet_next')
-        ))?.click();
-
-        pushItems();
-      }
-
       return items;
     });
 
@@ -500,6 +487,12 @@ const getAppointments = async (
           },
         } = await api.get<Scrapper.FullAppointment>(
           `/Worksheet/Update?id=${appointment.id}`
+        );
+
+        log(
+          `Infos from appointment ${appointmentPos + 1} of ${
+            localAppointments.length
+          } received!`
         );
 
         return {
@@ -663,12 +656,12 @@ const getTimeInterval = async (
 
     await page.waitForSelector('#tbReport', { timeout: 3000 });
 
-    const returnedInterval = await page.evaluate(() => {
-      const item = document.querySelectorAll('#tbReport > tbody')[1];
-
-      return item.children[0].children[item.children[0].childElementCount - 2]
-        .textContent;
-    });
+    const returnedInterval = await page.evaluate(
+      () =>
+        document.querySelector(
+          '#tbReport > tbody:nth-child(3) > tr > td:nth-child(8)'
+        )?.textContent
+    );
 
     if (returnedInterval)
       timeInterval = returnedInterval.replace(
@@ -735,6 +728,20 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
   const browser = await puppeteer.launch(puppeteerOptions);
   const page = await browser.newPage();
+
+  await page.setRequestInterception(true);
+
+  page.on('request', (request) => {
+    if (
+      request.url() ===
+        'https://luby-timesheet.azurewebsites.net/Content/neon/assets/js/datatables/datatables.js' ||
+      ['image', 'stylesheet', 'font', 'other'].includes(request.resourceType())
+    ) {
+      request.abort();
+    } else {
+      request.continue();
+    }
+  });
 
   log('Browser active!\n');
 
