@@ -12,14 +12,11 @@ import { AxiosInstance } from 'axios';
 import { endOfMonth, format } from 'date-fns';
 import { Request as Req, Response as Res } from 'express';
 import jwt from 'jsonwebtoken';
-import puppeteer, { Page, Protocol } from 'puppeteer';
+import puppeteer, { Browser, Page, Protocol } from 'puppeteer';
 
-const done = async (res: Res<Scrapper.Response>, page?: Page) => {
+const close = async (browser: Browser, page: Page) => {
   if (page) await page.close();
-
-  log(`[${200}]: All done!`);
-
-  return res.status(200).json({ message: 'All done!' });
+  if (browser) await browser.close();
 };
 
 const validateFields = (
@@ -747,37 +744,37 @@ export const seed: Scrapper.Handler = async (req, res) => {
 
   const cookies = await signInScrapper(page, req, res);
 
-  if (cookies.length <= 0) return await page.close();
+  if (cookies.length <= 0) return await close(browser, page);
 
   const api = apiFactory(cookies);
 
   const clients = await getClients(api, res);
 
-  if (clients.length <= 0) return await page.close();
+  if (clients.length <= 0) return await close(browser, page);
 
   await saveClients(clients, apolloClient);
 
   const projects = await getProjects(clients, api, res);
 
-  if (projects.length <= 0) return await page.close();
+  if (projects.length <= 0) return await close(browser, page);
 
   await saveProjects(user.email, projects, apolloClient);
 
   const categories = await getCategories(projects, api, res);
 
-  if (categories.length <= 0) return await page.close();
+  if (categories.length <= 0) return await close(browser, page);
 
   await saveCategories(categories, apolloClient);
 
   const appointments = await getAppointments(page, api, res);
 
-  if (appointments.length <= 0) return await page.close();
+  if (appointments.length <= 0) return await close(browser, page);
 
   await saveAppointments(appointments, user.email, apolloClient);
 
   const timeInterval = await getTimeInterval(page, res);
 
-  if (timeInterval === '') return await page.close();
+  if (timeInterval === '') return await close(browser, page);
 
   const timeIntervalSaved = await saveTimeInterval(
     timeInterval,
@@ -786,7 +783,11 @@ export const seed: Scrapper.Handler = async (req, res) => {
     res
   );
 
-  if (!timeIntervalSaved) return await page.close();
+  if (!timeIntervalSaved) return await close(browser, page);
 
-  return done(res, page);
+  await close(browser, page);
+
+  log(`[${200}]: All done!`);
+
+  return res.status(200).json({ message: 'All done!' });
 };
