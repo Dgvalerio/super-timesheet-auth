@@ -171,7 +171,7 @@ export class ApolloClientHelper {
 
     const { data } = await this.mutation<{ addProject: UserEntity }>(gql`
       mutation {
-        addProject(input: {
+        addProjectToUser(input: {
           userEmail: "${input.userEmail}"
           projectCode: "${input.projectCode}"
         }) { id }
