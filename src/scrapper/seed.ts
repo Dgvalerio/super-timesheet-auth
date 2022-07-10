@@ -337,7 +337,7 @@ const getCategories = async (
   api: AxiosInstance,
   res: Res<Scrapper.Response>
 ): Promise<Scrapper.Category[]> => {
-  const categories: Scrapper.Category[] = [];
+  let categories: Scrapper.Category[] = [];
 
   log('\nStarting "Get Categories" process!');
 
@@ -348,11 +348,7 @@ const getCategories = async (
         `idproject=${projects[index].Id}`
       );
 
-      data.map((category) => {
-        if (!categories.find(({ Id }) => Id === category.Id)) {
-          categories.push(category);
-        }
-      });
+      categories = categories.concat(data);
     } catch (e) {
       errorLog(`Error on "Get Categories [${index}]" process!`, e);
     }
