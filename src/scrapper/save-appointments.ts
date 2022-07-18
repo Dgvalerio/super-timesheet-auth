@@ -153,8 +153,21 @@ const signInScrapper = async (
   }
 };
 
-const getFirstAppointment = async (
+interface IAppointmentFactory {
+  id: string;
+  cliente: string;
+  projeto: string;
+  categoria: string;
+  data: string;
+  horaInicial: string;
+  horaFinal: string;
+  naoContabilizado: boolean;
+  avaliacao: string;
+}
+
+const searchAppointment = async (
   page: Page,
+  toFind: SaveAppointments.Appointment,
   api: AxiosInstance,
   res: Res<SaveAppointments.Response>
 ): Promise<Scrapper.Appointment | undefined> => {
@@ -167,35 +180,56 @@ const getFirstAppointment = async (
 
     await page.waitForSelector('#tbWorksheet', { timeout: 3000 });
 
-    const localAppointment = await page.evaluate(() => {
-      const getInnerText = (field: unknown) =>
-        (field as HTMLTableColElement)?.innerText;
+    const localAppointment: IAppointmentFactory | undefined =
+      await page.evaluate(
+        (date, startTime, endTime) => {
+          let item: IAppointmentFactory | undefined;
 
-      const getChecked = (field: unknown) =>
-        ((field as HTMLTableColElement)?.children[0] as HTMLInputElement)
-          .checked;
+          const appointmentFactory = (item: Element): IAppointmentFactory => {
+            const getInnerText = (field: unknown) =>
+              (field as HTMLTableColElement)?.innerText;
 
-      const getId = (field: unknown) =>
-        (field as HTMLTableColElement)?.children[0].id;
+            const getChecked = (field: unknown) =>
+              ((field as HTMLTableColElement)?.children[0] as HTMLInputElement)
+                .checked;
 
-      const item = document.querySelector(
-        '#tbWorksheet > tbody > tr:first-child'
+            const getId = (field: unknown) =>
+              (field as HTMLTableColElement)?.children[0].id;
+
+            return {
+              id: getId(item.children[9]),
+              cliente: getInnerText(item.children[0]),
+              projeto: getInnerText(item.children[1]),
+              categoria: getInnerText(item.children[2]),
+              data: getInnerText(item.children[3]),
+              horaInicial: getInnerText(item.children[4]),
+              horaFinal: getInnerText(item.children[5]),
+              naoContabilizado: getChecked(item.children[7]),
+              avaliacao: getInnerText(item.children[8]),
+            };
+          };
+
+          document
+            .querySelectorAll('#tbWorksheet > tbody > tr')
+            .forEach((row) => {
+              const appointmentRow = appointmentFactory(row);
+
+              if (
+                appointmentRow.data.replace(/\//g, '') === date &&
+                appointmentRow.horaInicial.replace(/:/g, '') === startTime &&
+                appointmentRow.horaFinal.replace(/:/g, '') === endTime
+              )
+                item = appointmentRow;
+            });
+
+          if (!item) return;
+
+          return item;
+        },
+        toFind.date,
+        toFind.startTime,
+        toFind.endTime
       );
-
-      if (!item) return;
-
-      return {
-        id: getId(item.children[9]),
-        cliente: getInnerText(item.children[0]),
-        projeto: getInnerText(item.children[1]),
-        categoria: getInnerText(item.children[2]),
-        data: getInnerText(item.children[3]),
-        horaInicial: getInnerText(item.children[4]),
-        horaFinal: getInnerText(item.children[5]),
-        naoContabilizado: getChecked(item.children[7]),
-        avaliacao: getInnerText(item.children[8]),
-      };
-    });
 
     if (!localAppointment) return;
 
@@ -378,20 +412,8 @@ const createAppointment = async (
   return { saved, message };
 };
 
-const appointmentAdapter = (
-  previous: Scrapper.Appointment
-): SaveAppointments.Appointment => ({
-  id: previous.id,
-  client: previous.cliente,
-  project: previous.projeto,
-  category: previous.categoria,
-  description: previous.descricao,
-  date: previous.data.replace(/\//g, ''),
-  commit: previous.commit === 'Não aplicado' ? undefined : previous.commit,
-  notMonetize: previous.naoContabilizado,
-  startTime: previous.horaInicial.replace(/:/g, ''),
-  endTime: previous.horaFinal.replace(/:/g, ''),
-});
+const descriptionAdapter = (description: string) =>
+  description.replace(/[\r\n]+/gm, '');
 
 const appointmentEntityAdapter = (
   local: SaveAppointments.Appointment,
@@ -415,8 +437,31 @@ const appointmentCompare = (
   scrapperAppointment: Scrapper.Appointment,
   appointmentEntity: SaveAppointments.Appointment
 ): boolean =>
-  JSON.stringify({ ...appointmentEntity, id: '' }) ===
-  JSON.stringify(appointmentAdapter({ ...scrapperAppointment, id: '' }));
+  JSON.stringify({
+    client: appointmentEntity.client,
+    project: appointmentEntity.project,
+    category: appointmentEntity.category,
+    description: descriptionAdapter(appointmentEntity.description),
+    date: appointmentEntity.date,
+    commit: appointmentEntity.commit,
+    notMonetize: appointmentEntity.notMonetize,
+    startTime: appointmentEntity.startTime,
+    endTime: appointmentEntity.endTime,
+  }) ===
+  JSON.stringify({
+    client: scrapperAppointment.cliente,
+    project: scrapperAppointment.projeto,
+    category: scrapperAppointment.categoria,
+    description: descriptionAdapter(scrapperAppointment.descricao),
+    date: scrapperAppointment.data.replace(/\//g, ''),
+    commit:
+      scrapperAppointment.commit === 'Não aplicado'
+        ? undefined
+        : scrapperAppointment.commit,
+    notMonetize: scrapperAppointment.naoContabilizado,
+    startTime: scrapperAppointment.horaInicial.replace(/:/g, ''),
+    endTime: scrapperAppointment.horaFinal.replace(/:/g, ''),
+  });
 
 const createAppointments = async (
   page: Page,
@@ -436,7 +481,12 @@ const createAppointments = async (
         message ===
         'O registro não pode ser realizado pois já existe um Apontamento dentro do intervalo de data e hora indicados'
       ) {
-        const azureAppointment = await getFirstAppointment(page, api, res);
+        const azureAppointment = await searchAppointment(
+          page,
+          appointment,
+          api,
+          res
+        );
 
         if (!azureAppointment)
           return result.push({
@@ -468,7 +518,12 @@ const createAppointments = async (
         });
       }
     } else {
-      const azureAppointment = await getFirstAppointment(page, api, res);
+      const azureAppointment = await searchAppointment(
+        page,
+        appointment,
+        api,
+        res
+      );
 
       if (!azureAppointment)
         return result.push({
