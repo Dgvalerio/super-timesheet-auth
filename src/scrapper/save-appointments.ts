@@ -453,6 +453,12 @@ const createAppointments = async (
               azureAppointment
             ),
           });
+        } else {
+          result.push({
+            message,
+            saved,
+            appointment: appointmentEntityAdapter(appointment),
+          });
         }
       } else {
         result.push({
