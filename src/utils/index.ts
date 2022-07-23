@@ -7,6 +7,7 @@ export const brDateToISO = (date: string) => {
 };
 
 export const puppeteerOptions: PuppeteerLaunchOptions = {
+  userDataDir: './cache',
   args: ['--no-sandbox', '--window-size=1280,768'],
   defaultViewport: {
     width: 1280,
