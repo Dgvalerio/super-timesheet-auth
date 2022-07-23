@@ -7,14 +7,6 @@ import { scrapper } from '@/utils/scrapper';
 import { Request as Req, Response as Res } from 'express';
 import puppeteer, { Page, Protocol } from 'puppeteer';
 
-const done = async (res: Res<AuthVerify.Response>, page?: Page) => {
-  if (page) await page.close();
-
-  log(`[${200}]: All done!`);
-
-  return res.status(200).json({ authenticationIsValid: true });
-};
-
 const validateFields = (
   req: Req<AuthVerify.Params, AuthVerify.Response, AuthVerify.Request>,
   res: Res<AuthVerify.Response>
@@ -22,6 +14,7 @@ const validateFields = (
   if (!req.body.login) {
     res.status(400).json({
       authenticationIsValid: false,
+      cookies: [],
       error: 'login should not be empty',
     });
 
@@ -30,6 +23,7 @@ const validateFields = (
   if (!req.body.password) {
     res.status(400).json({
       authenticationIsValid: false,
+      cookies: [],
       error: 'password should not be empty',
     });
 
@@ -62,9 +56,11 @@ const signInScrapper = async (
 
     if (page.url() !== scrapper.homeIndex) {
       errorLog(`[${406}]: Invalid login`);
-      res
-        .status(406)
-        .json({ authenticationIsValid: false, error: 'Invalid login' });
+      res.status(406).json({
+        authenticationIsValid: false,
+        cookies: [],
+        error: 'Invalid login',
+      });
 
       return [];
     }
@@ -75,9 +71,11 @@ const signInScrapper = async (
 
     if (!cookies) {
       errorLog(`[${500}]: Cookies not loaded`);
-      res
-        .status(500)
-        .json({ authenticationIsValid: false, error: 'Cookies not loaded' });
+      res.status(500).json({
+        authenticationIsValid: false,
+        cookies: [],
+        error: 'Cookies not loaded',
+      });
 
       return [];
     }
@@ -89,7 +87,7 @@ const signInScrapper = async (
     const { error, code } = puppeteerErrorHandler(e as Error);
 
     errorLog(`[${code}]: ${error}`);
-    res.status(code).json({ authenticationIsValid: false, error });
+    res.status(code).json({ authenticationIsValid: false, cookies: [], error });
 
     return [];
   }
@@ -105,11 +103,33 @@ export const authVerify: AuthVerify.Handler = async (req, res) => {
   const browser = await puppeteer.launch(puppeteerOptions);
   const page = await browser.newPage();
 
+  await page.setRequestInterception(true);
+
+  page.on('request', (request) => {
+    if (
+      ['image', 'stylesheet', 'font', 'other'].includes(request.resourceType())
+    )
+      request.abort();
+    else request.continue();
+  });
+
   log('Browser active!\n');
 
   const cookies = await signInScrapper(page, req, res);
 
-  if (cookies.length <= 0) return await page.close();
+  if (cookies.length <= 0) {
+    await page.close();
+    await browser.close();
 
-  return done(res, page);
+    return;
+  }
+
+  if (page) {
+    await page.close();
+    await browser.close();
+  }
+
+  log(`[${200}]: All done!`);
+
+  return res.status(200).json({ authenticationIsValid: true, cookies });
 };

@@ -2,6 +2,7 @@
 import { AppointmentEntity } from '@/models/appointment.dto';
 
 import { RequestHandler } from 'express';
+import { Protocol } from 'puppeteer';
 
 export namespace Scrapper {
   export interface FullAppointment {
@@ -147,9 +148,11 @@ export namespace AuthVerify {
   export type Response =
     | {
         authenticationIsValid: true;
+        cookies: Protocol.Network.Cookie[];
       }
     | {
         authenticationIsValid: false;
+        cookies: [];
         error: string;
       };
 
