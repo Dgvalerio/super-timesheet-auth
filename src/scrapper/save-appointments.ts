@@ -8,6 +8,7 @@ import { statusAdapter } from '@/types/adapters';
 import { SaveAppointments, Scrapper } from '@/types/scrapper';
 import { puppeteerOptions } from '@/utils';
 import { errorLog, log } from '@/utils/logs';
+import { checkValue } from '@/utils/puppeteer';
 import { scrapper } from '@/utils/scrapper';
 
 import { AxiosInstance } from 'axios';
@@ -61,35 +62,6 @@ const validateAppointment = (a: SaveAppointments.Appointment): string[] => {
   if (!a.endTime) e.push('endTime should not be empty');
 
   return e;
-};
-
-const checkValue = async (
-  page: Page,
-  selector: string,
-  value: string | boolean
-) => {
-  log(`Check value of ${selector}...`);
-
-  const response = await page.evaluate(
-    (aSelector, aValue) => {
-      const value = (<HTMLInputElement>document.querySelector(aSelector)).value;
-
-      if (value !== aValue) {
-        (<HTMLInputElement>document.querySelector(aSelector)).value = <string>(
-          aValue
-        );
-
-        return false;
-      }
-
-      return true;
-    },
-    selector,
-    value
-  );
-
-  if (response) log(`${selector} typed!`);
-  else await checkValue(page, selector, value);
 };
 
 const signInScrapper = async (
@@ -590,7 +562,12 @@ export const saveAppointments: SaveAppointments.Handler = async (req, res) => {
 
   const cookies = await signInScrapper(page, req, res);
 
-  if (cookies.length <= 0) return await page.close();
+  if (cookies.length <= 0) {
+    await page.close();
+    await browser.close();
+
+    return;
+  }
 
   const api = apiFactory(cookies);
 
@@ -602,6 +579,7 @@ export const saveAppointments: SaveAppointments.Handler = async (req, res) => {
   );
 
   if (page) await page.close();
+  if (browser) await browser.close();
 
   log(`[${200}]: All done!`);
 
