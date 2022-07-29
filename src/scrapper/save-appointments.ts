@@ -578,8 +578,7 @@ export const saveAppointments: SaveAppointments.Handler = async (req, res) => {
     api,
     res,
     req.body.appointments.map((appointment) => {
-      console.log(typeof appointment.category, appointment.category);
-      // if (appointment.category !== '1') delete appointment.commit;
+      if (appointment.category !== '1') delete appointment.commit;
 
       return appointment;
     })
