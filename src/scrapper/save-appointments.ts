@@ -460,27 +460,29 @@ const createAppointments = async (
           res
         );
 
-        if (!azureAppointment)
+        if (!azureAppointment) {
           return result.push({
             message,
             saved,
             appointment: appointmentEntityAdapter(appointment),
           });
-        if (appointmentCompare(azureAppointment, appointment)) {
-          result.push({
-            message,
-            saved: true,
-            appointment: appointmentEntityAdapter(
-              appointment,
-              azureAppointment
-            ),
-          });
         } else {
-          result.push({
-            message,
-            saved,
-            appointment: appointmentEntityAdapter(appointment),
-          });
+          if (appointmentCompare(azureAppointment, appointment)) {
+            result.push({
+              message,
+              saved: true,
+              appointment: appointmentEntityAdapter(
+                appointment,
+                azureAppointment
+              ),
+            });
+          } else {
+            result.push({
+              message,
+              saved,
+              appointment: appointmentEntityAdapter(appointment),
+            });
+          }
         }
       } else {
         result.push({
